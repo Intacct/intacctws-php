@@ -895,6 +895,10 @@ class api_post
         if ($error != "") {
             throw new exception($error);
         }
+        $curlInfo = curl_getinfo($ch);
+        if ($curlInfo['http_code'] != 200) {
+            throw new exception('HTTP code not 200, got code ' . $curlInfo['http_code'] . ' instead.');
+        }
         curl_close($ch);
 
         self::$lastResponse = $response;
