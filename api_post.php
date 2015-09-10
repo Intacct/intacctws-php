@@ -841,15 +841,15 @@ class api_post
         $count = 0; // retry five times on too many operations
         $res = "";
         while (true) {
-            $res = api_post::execute($xml, $endPoint);
-
-            // If we didn't get a response, we had a poorly constructed XML request.
             try {
+                $res = api_post::execute($xml, $endPoint);
                 api_post::validateResponse($res, $xml);
                 break;
-            }
-            catch (Exception $ex) {
-                if (strpos($ex->getMessage(), "too many operations") !== false) {
+            } catch (Exception $ex) {
+                if (
+                    strpos($ex->getMessage(), "too many operations") !== false //API throttling
+                    || strpos($ex->getMessage(), "HTTP Response Code not 200") !== false //CDN or other issue
+                ) {
                     $count++;
                     if ($count >= 5) {
                         throw new Exception($ex);
@@ -893,11 +893,11 @@ class api_post
         $response = curl_exec($ch);
         $error = curl_error($ch);
         if ($error != "") {
-            throw new exception($error);
+            throw new Exception($error);
         }
         $curlInfo = curl_getinfo($ch);
         if ($curlInfo['http_code'] != 200) {
-            throw new exception('HTTP code not 200, got code ' . $curlInfo['http_code'] . ' instead.');
+            throw new Exception('HTTP code not 200, got code ' . $curlInfo['http_code'] . ' instead.');
         }
         curl_close($ch);
 
