@@ -141,10 +141,10 @@ class api_util
                 }
 
                 $firstKey = array_shift(array_keys($value));
-                if (is_array($value[$firstKey]) || count($value) > 1 ) {
+                if ((array_key_exists($firstKey, $value) && is_array($value[$firstKey])) || count($value) > 1 ) {
                     $_xml = self::phpToXml($node, $value);
                 } else {
-                    $v = $value[$firstKey];
+                    $v = array_key_exists($firstKey, $value) ? $value[$firstKey] : null;
                     $_xml .= "<$node>" . htmlspecialchars($v) . "</$node>";
                 }
 
