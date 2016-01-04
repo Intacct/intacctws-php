@@ -182,13 +182,13 @@ class api_util
 
         $table = array();
         // get the header row                                                                                                        
-        $header = fgetcsv($fp, 10000, ',', '"');
+        $header = fgetcsv($fp, 0, ',', '"');
         if (is_null($header) || is_null($header[0])) {
             throw new exception ("Unable to determine header.  Is there garbage in the file?");
         }
 
         // get the rows                                                                                                              
-        while (($data = fgetcsv($fp, 10000, ',', '"')) !== false) {
+        while (($data = fgetcsv($fp, 0, ',', '"')) !== false) {
             $row = array();
             foreach ($header as $key => $value) {
                 $row[$value] = $data[$key];
