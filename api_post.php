@@ -800,6 +800,7 @@ class api_post
         <uniqueid>false</uniqueid>
         <dtdversion>{$dtdVersion}</dtdversion>
         {%validate}
+        <includewhitespace>false</includewhitespace>
     </control>
     <operation transaction='{$transaction}'>
         <authentication>
