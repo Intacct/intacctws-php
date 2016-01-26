@@ -1,6 +1,6 @@
 <?php
 /**
- * Copyright (c) 2013, Intacct OpenSource Initiative
+ * Copyright (c) 2013-2016, Intacct OpenSource Initiative
  * All rights reserved.
  *
  * Redistribution and use in source and binary forms, with or without modification, are permitted provided that the
@@ -225,5 +225,26 @@ class api_util
         return "$errorno: $description: $description2: $correction";
     }
 
+    /**
+     * Really simple method to trip the XML Declaration from an XML Element.
+     *
+     * @param SimpleXMLElement $xmlElement
+     * @return string
+     * @throws Exception
+     */
+    public static function xmlElementToSnippet(SimpleXMLElement $xmlElement)
+    {
+        $xml = $xmlElement->asXML();
+        $x = stripos($xml,"<?xml");
+        if ($x === false) {
+            return $xml;
+        }
+        if ($x != 0) {
+            throw new Exception("XML declaration not found at beginning of string.");
+        }
+        $y = strpos($xml, ">");
+        $snippet = trim(substr($xml, $y+1));
+        return $snippet;
+    }
 
 }

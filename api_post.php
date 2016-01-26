@@ -1,6 +1,6 @@
 <?php
 /**
- * Copyright (c) 2013, Intacct OpenSource Initiative
+ * Copyright (c) 2013-2016, Intacct OpenSource Initiative
  * All rights reserved.
  *
  * Redistribution and use in source and binary forms, with or without modification, are permitted provided that the
@@ -328,7 +328,7 @@ class api_post
         $xml = api_util::phpToXml('content', array($func));
         $res = api_post::post($xml, $session, $dtdVersion, true);
         $count = 0;
-        $ret = api_post::processListResults($res, api_returnFormat::PHPOBJ, $count);
+        $ret = api_post::processListResults($res, api_returnFormat::PHPOBJ);
         $toReturn = $ret[$object];
         if (is_array($toReturn)) {
             $keys = array_keys($toReturn);
@@ -542,7 +542,6 @@ class api_post
         $objDefXml = $simpleXml->operation->result->data->Type;
         $objDef = new api_objDef($objDefXml);
         return $objDef;
-        //return $objAry;
     }
 
     /**
@@ -681,8 +680,8 @@ class api_post
      * @param string      $cloudDelivery Cloud delivery destination to which to deliver the results.
      * @param string      $jobType       type of job: all or changes
      * @param null        $timestamp     if changes, then the time stamp from which to pull
-     *
-     * @return String
+     * @return api_ddsJob
+     * @throws Exception
      */
     public static function runDdsJob(api_session $session, $object, $cloudDelivery, $jobType, $timestamp=null)
     {
@@ -770,6 +769,168 @@ class api_post
     }
 
     /**
+     * Get the date to which the books are closed
+     *
+     * @param api_session $sess Connected api_session object
+     *
+     * @throws Exception
+     * @return DateTime
+     */
+    public static function getClosedBooksDate(api_session $sess)
+    {
+        $runXml = "<get_closedbooksdate/>";
+        $response = api_post::post($runXml, $sess);
+        $respElem = new simpleXmlElement($response);
+        if ($respElem === false) {
+            throw new Exception("Invalid XML response in getClosedBooksDate.");
+        }
+
+        $closedBooksDate = $respElem->operation->result->data->closedbooksdate;
+        $date = new DateTime(
+            (int)$closedBooksDate->year . '-' . (int)$closedBooksDate->month . '-' . (int)$closedBooksDate->day
+        );
+        return $date;
+    }
+
+    /**
+     * Execute a pre-defined report and return the data.  Optionally pass arguments to the report.
+     * Note that readReport reverts to asynchronous mode when the report exceeds a fixed amount of time.
+     *
+     * @param string                        $reportName The report name
+     * @param api_session                   $sess       Connected api_session object
+     * @param array|api_readReportArguments $arguments  Should be array of arguments ['key'] => $arg .
+     * @return simpleXmlElement[]
+     * @throws Exception
+     */
+    public static function readReport($reportName, api_session $sess, api_readReportArguments $arguments = null)
+    {
+
+        $runXml = new SimpleXMLElement("<readReport/>");
+        $runXml->addAttribute('returnDef', 'false');
+        $runXml->addChild('report',$reportName);
+        $runXml->addChild('pagesize', self::DEFAULT_PAGESIZE);
+        $runXml->addChild('returnFormat', 'xml');
+        if (!is_null($arguments)) {
+            $arguments->addAsElement($runXml);
+        }
+        $runXml->addChild('waitTime', 5);
+        $runXmlString = api_util::xmlElementToSnippet($runXml);
+
+        $response = api_post::post($runXmlString, $sess);
+        $responseXml = new simpleXmlElement($response);
+        if ($responseXml === false) {
+            throw new Exception("Invalid XML response in readReport.");
+        }
+
+        // Did we get the results or did we get a handle?
+        $reportHandle = $responseXml->operation->result->data->report_results;
+        $reportId = (string)$reportHandle->REPORTID;
+        $reportStatus = (string)$reportHandle->STATUS;
+        $allResults = array();
+        $reportResult = null;
+        $readMoreResponse = null;
+
+        // Ping every 5 seconds until the report is ready
+        while ($reportStatus == 'PENDING') {
+            sleep(5);
+            $reportResult = api_post::readMoreReport($reportId, $sess);
+            $reportStatus = (string)$reportResult->report->data->STATUS;
+            if ($reportStatus == '') {
+                // weird.  if the status is DONE, it shows up in data->report->status
+                $reportStatus = (string)$reportResult->report->STATUS;
+            }
+        }
+
+        // read the report results page by page until we have all the records
+        $allResults = api_post::gatherReportResults($reportResult, $allResults);
+        $recordsLeft = api_post::getRecordsLeftAttribute($reportResult);
+        while ($recordsLeft != 0) {
+            $reportResult = api_post::readMoreReport($reportId, $sess);
+            $allResults = api_post::gatherReportResults($reportResult, $allResults);
+            $recordsLeft = api_post::getRecordsLeftAttribute($reportResult);
+        }
+
+        return $allResults;
+    }
+
+    /**
+     * Parse the readMore result from readReport to determine the number of remaining records to retrieve.
+     *
+     * @param simpleXmlElement $reportResult
+     * @return int
+     */
+    private static function getRecordsLeftAttribute(simpleXmlElement $reportResult)
+    {
+        $recordsLeft = 0;
+        foreach($reportResult->attributes() as $key => $value) {
+            if ($key == 'numremaining') $recordsLeft = (int)$value;
+        }
+        return $recordsLeft;
+    }
+
+    /**
+     * Read the next page of results from a readReport invocation
+     *
+     * @param             $reportId
+     * @param api_session $sess
+     * @return simpleXmlElement
+     * @throws Exception
+     */
+    private static function readMoreReport($reportId, api_session $sess)
+    {
+        $readMoreXml = new SimpleXMLElement('<readMore/>');
+        $readMoreXml->addChild('reportId', $reportId);
+        $readMoreResponse = api_post::post(api_util::xmlElementToSnippet($readMoreXml), $sess);
+        $readMoreResponseXml = new simpleXmlElement($readMoreResponse);
+        if ($readMoreResponseXml === false) {
+            throw new Exception("Invalid XML response in readMore.");
+        }
+
+        $reportResult = $readMoreResponseXml->operation->result->data;
+        return $reportResult;
+    }
+
+    /**
+     * Iterate over the results and accumulate the returned records
+     *
+     * @param simpleXmlElement $readMoreResults
+     * @param array            $allResults      Existing results to which to append results
+     * @return simpleXmlElement[]
+     */
+    private function gatherReportResults(simpleXmlElement $readMoreResults, array $allResults)
+    {
+
+        foreach($readMoreResults->report->data as $data) {
+            $allResults[] = $data;
+        }
+
+        return $allResults;
+    }
+
+    /**
+     * Get the definition of a report by its name
+     *
+     * @param             $reportName
+     * @param api_session $sess
+     * @throws Exception
+     * @return simpleXmlElement
+     */
+    public static function readReportDefinition($reportName, api_session $sess)
+    {
+        $runXml = new SimpleXMLElement('<readReport/>');
+        $runXml->addAttribute('returnDef', 'true');
+        $runXml->addChild('report', $reportName);
+        $response = api_post::post(api_util::xmlElementToSnippet($runXml), $sess);
+        $responseXml = new simpleXmlElement($response);
+        if ($responseXml === false) {
+            throw new Exception('Invalid XML response in readReportDefinition.');
+        }
+
+        $reportDefXml = $responseXml->operation->result->data->report_definition;
+        return $reportDefXml;
+    }
+
+    /**
      * Internal method for posting the invocation to the Intacct XML Gateway
      *
      * @param String      $xml        the XML request document
@@ -844,7 +1005,7 @@ class api_post
         while (true) {
             try {
                 $res = api_post::execute($xml, $endPoint);
-                api_post::validateResponse($res, $xml);
+                api_post::validateResponse($res);
                 break;
             } catch (Exception $ex) {
                 if (
@@ -1179,4 +1340,98 @@ class api_post
         self::$dryRun = $tf;
     }
     
+}
+
+/**
+ * Class api_readReportArguments
+ *
+ * Arguments structure usable for the readReport method.  Echo the class or call __toString to get
+ * the XML representation.  Add this class as a SimpleXmlElement by calling addAsElement
+ */
+
+class api_readReportArguments
+{
+    /** @var array $args */
+    private $args;
+
+    /** @var  array $dateArgs */
+    private $dateArgs;
+
+    /**
+     * Add an argument to the structure for an exact match field.
+     *
+     * @param string $key Name of the field on which to pass argument.  Should be the integration name for the field
+     * @param string $arg Filter argument.  This is a bit free form.  We'll provide examples.
+     */
+    public function addArg($key, $arg)
+    {
+        $this->args[$key] = $arg;
+    }
+
+    /**
+     * Add a date range argument.  Pass either from, to or both.  Use the integration name for the field
+     *
+     * @param string        $key  Field to filter on
+     * @param DateTime|null $from Date range from
+     * @param DateTime|null $to   Date range to
+     * @throws Exception
+     */
+    public function addDateRangeArg($key, DateTime $from=null, DateTime $to=null)
+    {
+        if (is_null($from) && is_null($to)) {
+            throw new Exception("You must pass either \$from, \$to or both.");
+        }
+
+        $dateArg = array();
+        if (!is_null($from)) {
+            $dateArg['FROM_DATE'] = $from->format('m/d/Y');
+        }
+        if (!is_null($to)) {
+            $dateArg['TO_DATE'] = $to->format('m/d/Y');
+        }
+
+        $this->dateArgs[$key] = $dateArg;
+    }
+
+    /**
+     * @return mixed
+     */
+    public function __toString()
+    {
+        $argXml = new SimpleXMLElement("<arguments/>");
+        self::constructElement($argXml);
+        return api_util::xmlElementToSnippet($argXml->asXML());
+    }
+
+    /**
+     * Add the arguments element to an existing XML Element
+     *
+     * @param SimpleXMLElement $xml
+     */
+    public function addAsElement(SimpleXMLElement &$xml)
+    {
+        $argXml = $xml->addChild('arguments');
+        self::constructElement($argXml);
+    }
+
+    /**
+     * Convert this class into a simpleXmlElement
+     *
+     * @param simpleXmlElement $argXml
+     */
+    private function constructElement(simpleXmlElement &$argXml)
+    {
+        foreach($this->args as $key => $arg) {
+            $argXml->addChild($key, $arg);
+        }
+        foreach($this->dateArgs as $key => $arg) {
+            $dateArg = $argXml->addChild($key);
+            if (array_key_exists('FROM_DATE', $arg)) {
+                $dateArg->addChild('FROM_DATE', $arg['FROM_DATE']);
+            }
+            if (array_key_exists('TO_DATE', $arg)) {
+                $dateArg->addChild('TO_DATE', $arg['TO_DATE']);
+            }
+        }
+    }
 }
