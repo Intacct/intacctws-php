@@ -60,13 +60,19 @@ class api_post
      * @param String              $id      a comma separated list of keys for each record you wish to read
      * @param String              $fields  a comma separated list of fields to return
      * @param \api_session|Object $session an instance of the php_session object
-     *
+     * @param string              $docparid Used for SODOCUMENT and PODOCUMENT records to indicate the document type
      * @return Array of records
+     * @throws exception
      */
-    public static function read($object, $id, $fields, api_session $session)
+    public static function read($object, $id, $fields, api_session $session, $docparid="")
     {
 
-        $readXml = "<read><object>$object</object><keys>$id</keys><fields>$fields</fields><returnFormat>csv</returnFormat></read>";
+        $readXml = "<read><object>$object</object><keys>$id</keys><fields>$fields</fields><returnFormat>csv</returnFormat>";
+        if(!empty($docparid)) {
+            $readXml .= "<docparid>$docparid</docparid>";
+        }
+        $readXml .= "</read>";
+
         $objCsv = api_post::post($readXml, $session);
         api_post::validateReadResults($objCsv);
         $objAry = api_util::csvToPhp($objCsv);
@@ -446,16 +452,17 @@ class api_post
     /**
      * Read records using a query.  Specify the object you want to query and something like a "where" clause
      *
-     * @param String      $object       the object upon which to run the query
-     * @param String      $query        the query string to execute.  Use SQL operators
-     * @param String      $fields       A comma separated list of fields to return
-     * @param api_session $session      An instance of the api_session object with a valid connection
-     * @param int         $maxRecords   number of records to return.  Defaults to 100000
-     * @param string      $returnFormat defaults to php object.  Pass one of the valid constants from api_returnFormat class
-     *
+     * @param String $object the object upon which to run the query
+     * @param String $query the query string to execute.  Use SQL operators
+     * @param String $fields A comma separated list of fields to return
+     * @param api_session $session An instance of the api_session object with a valid connection
+     * @param string $docparid Used for SODOCUMENT and PODOCUMENT records to indicate the document type
+     * @param int $maxRecords number of records to return.  Defaults to 100000
+     * @param string $returnFormat defaults to php object.  Pass one of the valid constants from api_returnFormat class
      * @return mixed either string or array of objects depending on returnFormat argument
+     * @throws Exception
      */
-    public static function readByQuery($object, $query, $fields, api_session $session, $maxRecords=self::DEFAULT_MAXRETURN, $returnFormat=api_returnFormat::PHPOBJ)
+    public static function readByQuery($object, $query, $fields, api_session $session, $docparid="", $maxRecords=self::DEFAULT_MAXRETURN, $returnFormat=api_returnFormat::PHPOBJ)
     {
 
         $pageSize = ($maxRecords <= self::DEFAULT_PAGESIZE) ? $maxRecords : self::DEFAULT_PAGESIZE;
@@ -471,6 +478,9 @@ class api_post
 
         $readXml = "<readByQuery><object>$object</object><query>$query</query><fields>$fields</fields><returnFormat>$returnFormatArg</returnFormat>";
         $readXml .= "<pagesize>$pageSize</pagesize>";
+        if(!empty($docparid)) {
+            $readXml .= "<docparid>$docparid</docparid>";
+        }
         $readXml .= "</readByQuery>";
 
         $response = api_post::post($readXml, $session);
@@ -547,17 +557,23 @@ class api_post
     /**
      * Read an object by its name field (vid for standard objects)
      *
-     * @param String      $object  object type
-     * @param String      $name    comma separated list of names.
-     * @param String      $fields  comma separated list of fields.
+     * @param String $object object type
+     * @param String $name comma separated list of names.
+     * @param String $fields comma separated list of fields.
      * @param api_session $session instance of api_session object.
-     *
+     * @param string $docparid  Used for SODOCUMENT and PODOCUMENT records to indicate the document type
      * @return Array of objects.  If only one name is passed, the fields will be directly accessible.
+     * @throws Exception
      */
-    public static function readByName($object, $name, $fields, api_session $session)
+    public static function readByName($object, $name, $fields, api_session $session, $docparid="")
     {
         $name = HTMLSpecialChars($name);
-        $readXml = "<readByName><object>$object</object><keys>$name</keys><fields>$fields</fields><returnFormat>csv</returnFormat></readByName>";
+        $readXml = "<readByName><object>$object</object><keys>$name</keys><fields>$fields</fields><returnFormat>csv</returnFormat>";
+        if(!empty($docparid)) {
+            $readXml .= "<docparid>$docparid</docparid>";
+        }
+        $readXml .= "</readByName>";
+
         $objCsv = api_post::post($readXml, $session);
 
         if (trim($objCsv) == "") {
