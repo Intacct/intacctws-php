@@ -61,6 +61,7 @@ class api_post
      * @param String              $fields  a comma separated list of fields to return
      * @param \api_session|Object $session an instance of the php_session object
      * @param string              $docparid Used for SODOCUMENT and PODOCUMENT records to indicate the document type
+     *
      * @return Array of records
      * @throws exception
      */
@@ -452,13 +453,14 @@ class api_post
     /**
      * Read records using a query.  Specify the object you want to query and something like a "where" clause
      *
-     * @param String $object the object upon which to run the query
-     * @param String $query the query string to execute.  Use SQL operators
-     * @param String $fields A comma separated list of fields to return
-     * @param api_session $session An instance of the api_session object with a valid connection
-     * @param string $docparid Used for SODOCUMENT and PODOCUMENT records to indicate the document type
-     * @param int $maxRecords number of records to return.  Defaults to 100000
-     * @param string $returnFormat defaults to php object.  Pass one of the valid constants from api_returnFormat class
+     * @param String        $object the object upon which to run the query
+     * @param String        $query the query string to execute.  Use SQL operators
+     * @param String        $fields A comma separated list of fields to return
+     * @param api_session   $session An instance of the api_session object with a valid connection
+     * @param string        $docparid Used for SODOCUMENT and PODOCUMENT records to indicate the document type
+     * @param int           $maxRecords number of records to return.  Defaults to 100000
+     * @param string        $returnFormat defaults to php object.  Pass one of the valid constants from api_returnFormat class
+     *
      * @return mixed either string or array of objects depending on returnFormat argument
      * @throws Exception
      */
@@ -557,11 +559,12 @@ class api_post
     /**
      * Read an object by its name field (vid for standard objects)
      *
-     * @param String $object object type
-     * @param String $name comma separated list of names.
-     * @param String $fields comma separated list of fields.
-     * @param api_session $session instance of api_session object.
-     * @param string $docparid  Used for SODOCUMENT and PODOCUMENT records to indicate the document type
+     * @param String        $object object type
+     * @param String        $name comma separated list of names.
+     * @param String        $fields comma separated list of fields.
+     * @param api_session   $session instance of api_session object.
+     * @param string        $docparid  Used for SODOCUMENT and PODOCUMENT records to indicate the document type
+     *
      * @return Array of objects.  If only one name is passed, the fields will be directly accessible.
      * @throws Exception
      */
