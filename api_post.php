@@ -464,7 +464,7 @@ class api_post
      * @return mixed either string or array of objects depending on returnFormat argument
      * @throws Exception
      */
-    public static function readByQuery($object, $query, $fields, api_session $session, $docparid="", $maxRecords=self::DEFAULT_MAXRETURN, $returnFormat=api_returnFormat::PHPOBJ)
+    public static function readByQuery($object, $query, $fields, api_session $session, $maxRecords=self::DEFAULT_MAXRETURN, $returnFormat=api_returnFormat::PHPOBJ, $docparid="")
     {
 
         $pageSize = ($maxRecords <= self::DEFAULT_PAGESIZE) ? $maxRecords : self::DEFAULT_PAGESIZE;
