@@ -115,7 +115,7 @@ class api_util
             return "<$key>$values</$key>";
         }
 
-        if (!is_numeric(array_shift($keys))) {
+        if (!is_numeric(array_shift(array_keys($values)))) {
             $xml = "<" . $key . ">";
         }
         foreach ($values as $node => $value) {
@@ -134,7 +134,7 @@ class api_util
                             $aval  = $v;
                             //$attrs = explode(':', substr($v,1));
                             //$attrString .= $pad . $attrs[0].'="'.$attrs[1].'" ';
-                            $attrString .= $pad . $aname . '="' . $aval . '" ';
+                            $attrString .= $pad . $aname . '="' . htmlspecialchars($aval) . '" ';
                             unset($value[$_k]);
                         }
                     }
@@ -157,7 +157,7 @@ class api_util
                 $xml .= "<" . $node . $attrString . ">" . htmlspecialchars($value) . "</" . $node . ">";
             }
         }
-        if (!is_numeric(array_shift($keys))) {
+        if (!is_numeric(array_shift(array_keys($values)))) {
             $xml .= "</" . $key . ">";
         }
         return $xml;
