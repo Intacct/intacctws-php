@@ -50,6 +50,7 @@ class api_session
         <uniqueid>false</uniqueid>
         <dtdversion>2.1</dtdversion>
         {6%}
+        <includewhitespace>false</includewhitespace>
     </control>
     <operation>
         <authentication>";

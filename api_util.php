@@ -1,6 +1,6 @@
 <?php
 /**
- * Copyright (c) 2013, Intacct OpenSource Initiative
+ * Copyright (c) 2013-2016, Intacct OpenSource Initiative
  * All rights reserved.
  *
  * Redistribution and use in source and binary forms, with or without modification, are permitted provided that the
@@ -115,7 +115,6 @@ class api_util
             return "<$key>$values</$key>";
         }
 
-        $keys = array_keys($values);
         if (!is_numeric(array_shift($keys))) {
             $xml = "<" . $key . ">";
         }
@@ -135,18 +134,17 @@ class api_util
                             $aval  = $v;
                             //$attrs = explode(':', substr($v,1));
                             //$attrString .= $pad . $attrs[0].'="'.$attrs[1].'" ';
-                            $attrString .= $pad . $aname . '="' . htmlspecialchars($aval) . '" ';
+                            $attrString .= $pad . $aname . '="' . $aval . '" ';
                             unset($value[$_k]);
                         }
                     }
                 }
 
-                $valueKeys = array_keys($value);
-                $firstKey = array_shift($valueKeys);
-                if ((isset($value[$firstKey]) && is_array($value[$firstKey])) || count($value) > 1 ) {
+                $firstKey = array_shift(array_keys($value));
+                if ((array_key_exists($firstKey, $value) && is_array($value[$firstKey])) || count($value) > 1 ) {
                     $_xml = self::phpToXml($node, $value);
                 } else {
-                    $v = isset($value[$firstKey]) ? $value[$firstKey] : '';
+                    $v = array_key_exists($firstKey, $value) ? $value[$firstKey] : null;
                     $_xml .= "<$node>" . htmlspecialchars($v) . "</$node>";
                 }
 
@@ -159,7 +157,6 @@ class api_util
                 $xml .= "<" . $node . $attrString . ">" . htmlspecialchars($value) . "</" . $node . ">";
             }
         }
-        $keys = array_keys($values);
         if (!is_numeric(array_shift($keys))) {
             $xml .= "</" . $key . ">";
         }
@@ -185,13 +182,13 @@ class api_util
 
         $table = array();
         // get the header row                                                                                                        
-        $header = fgetcsv($fp, 10000, ',', '"');
+        $header = fgetcsv($fp, 0, ',', '"');
         if (is_null($header) || is_null($header[0])) {
             throw new exception ("Unable to determine header.  Is there garbage in the file?");
         }
 
         // get the rows                                                                                                              
-        while (($data = fgetcsv($fp, 10000, ',', '"')) !== false) {
+        while (($data = fgetcsv($fp, 0, ',', '"')) !== false) {
             $row = array();
             foreach ($header as $key => $value) {
                 $row[$value] = $data[$key];
@@ -228,5 +225,26 @@ class api_util
         return "$errorno: $description: $description2: $correction";
     }
 
+    /**
+     * Really simple method to trip the XML Declaration from an XML Element.
+     *
+     * @param SimpleXMLElement $xmlElement
+     * @return string
+     * @throws Exception
+     */
+    public static function xmlElementToSnippet(SimpleXMLElement $xmlElement)
+    {
+        $xml = $xmlElement->asXML();
+        $x = stripos($xml,"<?xml");
+        if ($x === false) {
+            return $xml;
+        }
+        if ($x != 0) {
+            throw new Exception("XML declaration not found at beginning of string.");
+        }
+        $y = strpos($xml, ">");
+        $snippet = trim(substr($xml, $y+1));
+        return $snippet;
+    }
 
 }
