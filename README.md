@@ -1,4 +1,3 @@
-intacctws-php
-=============
+# This repository is no longer maintained.
 
-Php wrapper classes for Intacct Web Services API
+Please visit https://github.com/Intacct/intacct-sdk-php
